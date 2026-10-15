@@ -1,0 +1,260 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ValiStock | Cadastro NFC</title>
+  <style>
+    :root { --blue:#1455a3; --green:#198754; --bg:#f3f7fc; }
+    * { box-sizing:border-box; }
+    body {
+      margin:0; font-family:Arial,sans-serif; color:#243247;
+      background:var(--bg);
+    }
+    header {
+      background:var(--blue); color:white; padding:22px 16px;
+      text-align:center;
+    }
+    header h1 { margin:0 0 7px; }
+    header p { margin:0; }
+    main { max-width:760px; margin:22px auto; padding:0 14px; }
+    .card {
+      background:white; border-radius:14px; padding:20px;
+      margin-bottom:18px; box-shadow:0 3px 12px #18345c12;
+    }
+    h2 { margin-top:0; color:var(--blue); font-size:20px; }
+    label { display:block; margin:13px 0 6px; font-weight:bold; }
+    input, select {
+      width:100%; padding:12px; border:1px solid #cbd5e1;
+      border-radius:8px; font-size:16px; background:white;
+    }
+    button {
+      padding:12px 15px; border:0; border-radius:8px;
+      cursor:pointer; font-size:15px; font-weight:bold;
+      margin-top:12px;
+    }
+    .primary { background:var(--green); color:white; width:100%; }
+    .secondary { background:#e5efff; color:var(--blue); }
+    .danger { background:#fee2e2; color:#991b1b; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .actions button { flex:1; }
+    .item {
+      padding:13px 0; border-bottom:1px solid #e2e8f0;
+      overflow-wrap:anywhere;
+    }
+    .item:last-child { border-bottom:0; }
+    .tag { color:var(--green); font-weight:bold; }
+    .muted { color:#64748b; font-size:14px; }
+    #status { margin-top:10px; font-size:14px; }
+    footer { text-align:center; color:#64748b; padding:8px 14px 26px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📦 ValiStock</h1>
+    <p>Cadastro de etiquetas NFC e seções</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Novo cadastro</h2>
+      <form id="form">
+        <label for="codigo">Código do produto</label>
+        <input id="codigo" required placeholder="Ex.: AL001">
+
+        <label for="produto">Nome do produto</label>
+        <input id="produto" required placeholder="Ex.: Arroz 5 kg">
+
+        <label for="secao">Seção do estoque</label>
+        <select id="secao" required>
+          <option value="C-01 Alimentos">C-01 — Alimentos</option>
+          <option value="P-02 Perfumaria">P-02 — Perfumaria</option>
+          <option value="L-03 Limpeza">L-03 — Limpeza</option>
+          <option value="Outra">Outra seção</option>
+        </select>
+
+        <label for="etiqueta">Código/UID da etiqueta NFC</label>
+        <input id="etiqueta" placeholder="Leia a etiqueta ou digite o código">
+        <button type="button" class="secondary" id="lerNfc">
+          Tentar ler etiqueta NFC
+        </button>
+        <div id="status" class="muted">
+          A leitura depende do celular, navegador e tipo de etiqueta.
+          Se necessário, digite o código manualmente.
+        </div>
+
+        <button type="submit" class="primary">Salvar cadastro</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Cadastros salvos</h2>
+      <input id="busca" placeholder="Pesquisar produto, código ou seção">
+      <div class="actions">
+        <button type="button" class="secondary" id="exportar">
+          Exportar CSV
+        </button>
+      </div>
+      <p id="contador" class="muted">0 cadastro(s)</p>
+      <div id="lista"></div>
+    </section>
+    <p class="muted">
+      Atenção: os registros ficam salvos neste navegador e aparelho.
+      Eles não são compartilhados automaticamente com outros celulares.
+    </p>
+  </main>
+  <footer>ValiStock • Controle de estoque</footer>
+
+  <script>
+    const STORAGE_KEY = "valistock_cadastros_nfc_v1";
+    const form = document.getElementById("form");
+    const etiqueta = document.getElementById("etiqueta");
+    const status = document.getElementById("status");
+    const lista = document.getElementById("lista");
+    const busca = document.getElementById("busca");
+    const contador = document.getElementById("contador");
+
+    function carregar() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      } catch {
+        return [];
+      }
+    }
+
+    function salvarDados(dados) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dados));
+    }
+
+    function mostrar() {
+      const termo = busca.value.trim().toLowerCase();
+      const dados = carregar().filter(item =>
+        [item.codigo, item.produto, item.secao, item.etiqueta]
+          .some(valor => (valor || "").toLowerCase().includes(termo))
+      );
+
+      contador.textContent = dados.length + " cadastro(s) encontrado(s)";
+      lista.replaceChildren();
+
+      if (!dados.length) {
+        const vazio = document.createElement("p");
+        vazio.className = "muted";
+        vazio.textContent = "Nenhum cadastro encontrado.";
+        lista.appendChild(vazio);
+        return;
+      }
+
+      dados.forEach(item => {
+        const bloco = document.createElement("div");
+        bloco.className = "item";
+        const titulo = document.createElement("strong");
+        titulo.textContent = item.produto + " (" + item.codigo + ")";
+        const linha1 = document.createElement("p");
+        linha1.textContent = "Seção: " + item.secao;
+        const linha2 = document.createElement("p");
+        linha2.className = "tag";
+        linha2.textContent = "Etiqueta NFC: " + (item.etiqueta || "Não informada");
+        const linha3 = document.createElement("p");
+        linha3.className = "muted";
+        linha3.textContent = "Cadastrado em: " + item.data;
+        const excluir = document.createElement("button");
+        excluir.className = "danger";
+        excluir.textContent = "Excluir cadastro";
+        excluir.addEventListener("click", () => {
+          if (!confirm("Excluir o cadastro de " + item.produto + "?")) return;
+          salvarDados(carregar().filter(registro => registro.id !== item.id));
+          mostrar();
+        });
+        bloco.append(titulo, linha1, linha2, linha3, excluir);
+        lista.appendChild(bloco);
+      });
+    }
+
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      const novo = {
+        id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+        codigo: document.getElementById("codigo").value.trim(),
+        produto: document.getElementById("produto").value.trim(),
+        secao: document.getElementById("secao").value,
+        etiqueta: etiqueta.value.trim(),
+        data: new Date().toLocaleString("pt-BR")
+      };
+
+      const dados = carregar();
+      const duplicado = dados.some(item =>
+        item.codigo.toLowerCase() === novo.codigo.toLowerCase() &&
+        item.etiqueta === novo.etiqueta
+      );
+      if (duplicado) {
+        alert("Esse produto e essa etiqueta já estão cadastrados.");
+        return;
+      }
+
+      dados.unshift(novo);
+      try {
+        salvarDados(dados);
+        form.reset();
+        status.textContent = "Cadastro salvo neste navegador.";
+        mostrar();
+      } catch {
+        alert("Não foi possível salvar. Verifique o espaço disponível no navegador.");
+      }
+    });
+
+    busca.addEventListener("input", mostrar);
+
+    document.getElementById("lerNfc").addEventListener("click", async () => {
+      if (!("NDEFReader" in window)) {
+        status.textContent =
+          "Leitura NFC pelo navegador indisponível. Digite o código da etiqueta manualmente.";
+        return;
+      }
+      try {
+        const leitor = new NDEFReader();
+        status.textContent = "Aproxime uma etiqueta NFC compatível do celular...";
+        leitor.onreading = event => {
+          if (event.serialNumber) {
+            etiqueta.value = event.serialNumber;
+            status.textContent = "Código recebido da etiqueta. Confira antes de salvar.";
+          } else {
+            status.textContent =
+              "A etiqueta foi detectada, mas não forneceu um número de série. Digite o código manualmente.";
+          }
+        };
+        leitor.onreadingerror = () => {
+          status.textContent = "Não foi possível ler essa etiqueta. Tente novamente ou digite o código.";
+        };
+        await leitor.scan();
+      } catch (erro) {
+        status.textContent =
+          "Leitura não iniciada: permita o acesso NFC e use um Android/navegador compatível em HTTPS.";
+      }
+    });
+
+    document.getElementById("exportar").addEventListener("click", () => {
+      const dados = carregar();
+      if (!dados.length) {
+        alert("Não há cadastros para exportar.");
+        return;
+      }
+      const colunas = ["codigo", "produto", "secao", "etiqueta", "data"];
+      const escapar = valor => '"' + String(valor ?? "").replace(/"/g, '""') + '"';
+      const csv = [
+        colunas.join(";"),
+        ...dados.map(item => colunas.map(c => escapar(item[c])).join(";"))
+      ].join("\r\n");
+      const arquivo = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(arquivo);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "valistock-cadastros-nfc.csv";
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+
+    mostrar();
+  </script>
+</body>
+</html>
