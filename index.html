@@ -117,7 +117,7 @@
 
     function carregar() {
       try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); 
       } catch {
         return [];
       }
@@ -205,7 +205,70 @@
 
     busca.addEventListener("input", mostrar);
 
-    document.getElementById("lerNfc").addEventListener("click", async () => {
+    
+document.getElementById("lerNfc").addEventListener("click", async () => {
+  if (!("NDEFReader" in window)) {
+    status.textContent =
+      "NFC indisponível neste navegador. Abra o site no Chrome do Android.";
+    return;
+  }
+
+  try {
+    const leitor = new NDEFReader();
+
+    leitor.onreading = (event) => {
+      let codigo = "";
+
+      for (const registro of event.message.records) {
+        if (registro.recordType === "text" && registro.data) {
+          const bytes = new Uint8Array(
+  registro.data.buffer,
+  registro.data.byteOffset,
+  registro.data.byteLength
+);
+
+const tamanhoIdioma = bytes.length ? bytes[0] & 0x3f : 0;
+
+codigo = new TextDecoder(
+  registro.encoding || "utf-8"
+).decode(bytes.slice(1 + tamanhoIdioma)).trim().toUpperCase();
+          break;
+        }
+      }
+
+      const secoes = {
+        "C-01": "C-01 Alimentos",
+        "P-02": "P-02 Perfumaria"
+      };
+
+      const campoSecao = document.getElementById("secao");
+
+      if (secoes[codigo]) {
+        campoSecao.value = secoes[codigo];
+        status.textContent =
+          "Seção identificada: " + secoes[codigo];
+      } else {
+        status.textContent =
+          "Etiqueta não reconhecida. Use o texto C-01 ou P-02.";
+      }
+    };
+
+    leitor.onreadingerror = () => {
+      status.textContent =
+        "Não foi possível ler a etiqueta. Tente novamente.";
+    };
+
+    status.textContent =
+      "Aproxime o celular da etiqueta NFC da seção.";
+
+    await leitor.scan();
+
+  } catch (erro) {
+    status.textContent =
+      "Não foi possível iniciar a leitura. Verifique o NFC e as permissões.";
+  }
+});
+
       if (!("NDEFReader" in window)) {
         status.textContent =
           "Leitura NFC pelo navegador indisponível. Digite o código da etiqueta manualmente.";
