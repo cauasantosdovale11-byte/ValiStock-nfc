@@ -207,6 +207,7 @@
 
     
 document.getElementById("lerNfc").addEventListener("click", async () => {
+alert("O botão NFC está funcionando!");
   if (!("NDEFReader" in window)) {
     status.textContent =
       "NFC indisponível neste navegador. Abra o site no Chrome do Android.";
